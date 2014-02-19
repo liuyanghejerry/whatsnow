@@ -91,10 +91,6 @@ void print_node(const CpuProfileNode* node, int depth)
   fflush(stdout);
 }
 
-Handle<Value> TryProfile(const Arguments& args) {
-  return Number::New(CpuProfiler::GetProfilesCount());
-}
-
 Handle<Value> RegProfiler(const Arguments& args) {
   signal(SIGINT, catch_int);
   return Undefined();
@@ -102,6 +98,7 @@ Handle<Value> RegProfiler(const Arguments& args) {
 
 Handle<Value> UnregProfiler(const Arguments& args) {
   signal(SIGINT, 0);
+  // TODO: what if we have a runing timer this time?
   return Undefined();
 }
 
