@@ -2,8 +2,8 @@
 #include <v8.h>
 #include <v8-profiler.h>
 
-#include <unistd.h>    /* standard unix functions, like getpid()         */
-#include <signal.h>    /* signal name macros, and the signal() prototype */
+#include <unistd.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -16,7 +16,6 @@ void print_node(const CpuProfileNode* node, int depth);
 const int profile_time = 10;
 Local<String> profile_name = String::New("test");
 
-/* the Ctrl-C signal handler */
 void catch_int(int sig_num)
 {
   sigset_t mask_set;  /* used to set a signal masking set. */
@@ -28,8 +27,6 @@ void catch_int(int sig_num)
   sigfillset(&mask_set);
   sigprocmask(SIG_SETMASK, &mask_set, &old_set);
 
-    /* restore the old signal mask */
-  sigprocmask(SIG_SETMASK, &old_set, NULL);
   printf("\nStarting profiling, %d seconds\n", profile_time);
   fflush(stdout);
 
@@ -37,6 +34,9 @@ void catch_int(int sig_num)
 
   signal(SIGALRM, catch_alarm);
   alarm(profile_time);
+
+  /* restore the old signal mask */
+  sigprocmask(SIG_SETMASK, &old_set, NULL);
 }
 
 void catch_alarm(int sig_num)
@@ -49,15 +49,17 @@ void catch_alarm(int sig_num)
   sigfillset(&mask_set);
   sigprocmask(SIG_SETMASK, &mask_set, &old_set);
 
-    /* restore the old signal mask */
-  sigprocmask(SIG_SETMASK, &old_set, NULL);
   printf("Stoping profiling...\n");
   fflush(stdout);
 
   const CpuProfile* profile = CpuProfiler::StopProfiling(profile_name);
   const CpuProfileNode* node = profile->GetBottomUpRoot();
   iterateProfileNodes(node);
-  exit(0);
+  exit(0); // TODO: remove
+
+  /* restore the old signal mask */
+  sigprocmask(SIG_SETMASK, &old_set, NULL);
+  
 }
 
 void iterateProfileNodes(const CpuProfileNode* node, int depth)
@@ -89,21 +91,23 @@ void print_node(const CpuProfileNode* node, int depth)
   fflush(stdout);
 }
 
-Handle<Value> Method(const Arguments& args) {
-  HandleScope scope;
-  return scope.Close(String::New("world"));
+Handle<Value> TryProfile(const Arguments& args) {
+  return Number::New(CpuProfiler::GetProfilesCount());
 }
 
-Handle<Value> TryProfile(const Arguments& args) {
-  HandleScope scope;
-  return scope.Close(Number::New(CpuProfiler::GetProfilesCount()));
+Handle<Value> RegProfiler(const Arguments& args) {
+  signal(SIGINT, catch_int);
+  return Undefined();
+}
+
+Handle<Value> UnregProfiler(const Arguments& args) {
+  signal(SIGINT, 0);
+  return Undefined();
 }
 
 void init(Handle<Object> target) {
-  signal(SIGINT, catch_int);
-
-  NODE_SET_METHOD(target, "hello", Method);
-  NODE_SET_METHOD(target, "tryProfile", TryProfile);
+  NODE_SET_METHOD(target, "regProfiler", RegProfiler);
+  NODE_SET_METHOD(target, "unregProfiler", UnregProfiler);
 }
 
 NODE_MODULE(binding, init);
